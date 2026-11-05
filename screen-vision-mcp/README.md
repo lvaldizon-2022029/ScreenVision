@@ -1,7 +1,6 @@
 # Screen Vision MCP
 
-**Personal AI, on personal devices** — el espíritu de OpenJarvis aplicado: un servidor MCP que
-le da al agente *ojos y manos* sobre la pantalla del usuario, 100% local.
+**Personal AI, on personal devices** — un servidor MCP que le da al agente *ojos y manos* sobre la pantalla del usuario, 100% local.
 
 ## Qué hace
 

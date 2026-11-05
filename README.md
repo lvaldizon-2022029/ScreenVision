@@ -1,7 +1,6 @@
 # Screen Vision
 
-**Personal AI, on personal devices** — en el espíritu de OpenJarvis ([open-jarvis/OpenJarvis](https://github.com/open-jarvis/OpenJarvis)):
-un servidor MCP que le da a un agente *ojos y manos* sobre la pantalla del usuario, 100% local, on-demand — nada corriendo sin que lo pidas.
+**Personal AI, on personal devices** — un servidor MCP que le da a un agente *ojos y manos* sobre la pantalla del usuario, 100% local, on-demand — nada corriendo sin que lo pidas.
 
 | | |
 |---|---|
@@ -66,4 +65,4 @@ campo verificado por OCR tras teclear, burbuja verificada tras enviar).
 
 ## Licencia
 
-Apache 2.0 (ver `LICENSE`). Esta versión de Screen Vision no está afiliada a OpenJarvis.
+Apache 2.0 (ver `LICENSE`).
