@@ -1,46 +1,56 @@
 # Screen Vision MCP
 
-**Personal AI, on personal devices** — un servidor MCP que le da al agente *ojos y manos* sobre la pantalla del usuario, 100% local.
+On-demand screen perception and interaction for AI agents, delivered as a Model Context Protocol (MCP) server. Windows-native, local-only, and fully audited.
 
-## Qué hace
+## Features
 
-| Grupo | Herramientas | Vía |
-|---|---|---|
-| Visión | `screenshot`, `list_monitors`, `active_window`, `watch_*`, `diff_frames` | píxeles |
-| OCR+geometría | `read_screen_text`, `find_text`, `click_by_text`, `type_and_verify`, `ui_alerts` | OCR + reglas de rol/posición |
-| DOM de escritorio | `uia_tree`, `uia_click`, `uia_get_value` | Windows **UI Automation** (nativo + Chromium) |
-| Entrada | `mouse_*`, `type_text`, `press_key`, `window_list`, `focus_window` | SendInput |
-| Flujos | `run_flow` (mirar→actuar→verificar con asserts, retries y abort), perfiles `save/get_profile` | engine |
-| Gobernanza | `set_autonomy demo|full` (confirm en envíos), `doctor` (self-check), log JSONL de cada acción | auditoría |
+| Area | Tools | Method |
+| --- | --- | --- |
+| Vision | `screenshot`, `list_monitors`, `active_window`, `watch_*`, `diff_frames` | Pixel capture |
+| OCR + geometry | `read_screen_text`, `find_text`, `click_by_text`, `type_and_verify`, `ui_alerts` | Local OCR |
+| Desktop tree | `uia_tree`, `uia_click`, `uia_get_value` | Windows UI Automation |
+| Input | `mouse_move`, `mouse_click`, `mouse_drag`, `scroll`, `type_text`, `press_key` | `SendInput` |
+| Flows & profiles | `run_flow`, `save_profile`, `get_profile` | JSON flow engine |
+| Governance & health | `set_autonomy`, `get_autonomy`, `doctor` | Mode gate + self-check |
 
-## Instalar (pipx/pip)
+## Installation
 
+```bash
+pip install -e ./screen-vision-mcp
+screen-vision-mcp  # run the MCP server over stdio
 ```
-python -m pip install -e ~/.config/opencode/mcp-servers/screen-vision-mcp
-screen-vision-mcp   # corre el servidor MCP por stdio
-```
 
-## Conectarlo a un agente (OpenCode)
+## Configuration
 
 ```json
-{ "mcp": { "servers": { "screen": {
-  "type": "local",
-  "command": ["python", "~/.config/opencode/mcp-servers/screen_server.py"] } } } }
+{
+  "mcp": {
+    "servers": {
+      "screen": {
+        "type": "local",
+        "command": ["python", "<path>/screen_server.py"]
+      }
+    }
+  }
+}
 ```
 
-## Principios
+See [`../screen_manifest.json`](../screen_manifest.json) for full tool contracts.
 
-1. **On-demand, no espía**: nada corre en background salvo el watcher visible (`watch_start`), que guarda máx. 12 frames.
-2. **Cero red**: todo queda en disco (`<temp>/opencode/screen-vision/`).
-3. **Assert de foco en cada paso**: el agente aborta antes que teclear a la ventana equivocada (aprendido con WhatsApp Web, 2026-11-05).
-4. **Verificación post-acción**: OCR/`uia_get_value` confirma lo tecleado; el envío se comprueba con la burbuja.
-5. **Exclusion de textos de error** en selección de candidatos: la franja "Contraseña vacía..." no es un campo.
+## Design Principles
 
-## Historial de lecciones (tests que lo prueban)
+1. **On-demand only.** Nothing captures or clicks unless invoked; the watcher retains 12 frames max.
+2. **Local-only.** No network access; data stays on disk.
+3. **Focus-guarded.** Tools abort on unexpected active-window changes.
+4. **Verify-after-act.** Typed content and submissions are confirmed before proceeding.
+5. **Auditable.** Actions are logged to `control_log.jsonl`.
 
-`tests/test_core.py` — 12 tests: `pick_candidate` (rol, posición relativa, exclusion de alertas),
-rondtrip de autonomía, clipboard 64-bit (`restype` explícito o access violation), manifest↔servidor.
+## Testing
 
-## Licencia
+```bash
+pytest tests/test_core.py -q
+```
 
-Apache 2.0.
+## License
+
+Apache 2.0. See `../LICENSE.md`.

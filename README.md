@@ -1,68 +1,85 @@
 # Screen Vision
 
-**Personal AI, on personal devices** — un servidor MCP que le da a un agente *ojos y manos* sobre la pantalla del usuario, 100% local, on-demand — nada corriendo sin que lo pidas.
+On-demand screen perception and interaction for AI agents, delivered as a Model Context Protocol (MCP) server. Windows-native, local-only, and fully audited. No background monitoring by default: nothing runs unless a tool is invoked.
 
-| | |
-|---|---|
-| **Tipo** | MCP server (FastMCP sobre stdio), no skill |
-| **Runtime** | Windows, Python 3.10+, `mcp<2` + Pillow + pywinauto |
-| **Instalable** | `pipx install ./screen-vision-mcp` o ejecutar `screen_server.py` directo |
-| **Compatibilidad** | Cualquier cliente MCP estándar (OpenCode, Claude Desktop, …) — ver `screen_manifest.json` |
+## Overview
 
-## Qué hace
+Agents typically reason about applications through pixels alone, which is slow and ambiguous. Screen Vision combines three perception paths so an agent can act with high confidence:
 
-| Grupo | Herramientas | Vía |
-|---|---|---|
-| **Visión** | `screenshot`, `list_monitors`, `active_window`, `watch_*`, `diff_frames` | píxeles |
-| **OCR+geometría** | `read_screen_text`, `find_text`, `click_by_text`, `type_and_verify`, `ui_alerts` | OCR + reglas de rol/posición |
-| **DOM de escritorio** | `uia_tree`, `uia_click`, `uia_get_value` | Windows **UI Automation** (nativo + Chromium) |
-| **Entrada** | `mouse_move/click/drag`, `scroll`, `type_text`, `press_key`, `window_list`, `focus_window` | SendInput |
-| **Flujos y perfiles** | `run_flow` (mirar→actuar→verificar con asserts/retries/abort), `save_profile` / `get_profile` | engine |
-| **Gobernanza y salud** | `set_autonomy demo/full`, `get_autonomy`, `doctor`, log JSONL de auditoría | — |
+1. **UI Automation** — reads and drives real controls by name via Windows UI Automation (`pywinauto`).
+2. **OCR + geometry** — reads visible text and returns click coordinates, with explicit role and relative-position rules.
+3. **Flow engine** — declarative `run_flow` steps with focus assertions, retries, and abort-on-mismatch so every action is verified before the next one.
 
-## Principios
+## Features
 
-1. **On-demand, no espía**: nada corre en background salvo el watcher explícito (`watch_start`), que guarda máx. 12 frames.
-2. **Cero red**: todo queda en disco (`<temp>/opencode/screen-vision/`).
-3. **Assert de foco en cada paso**: si la ventana activa cambia, el agente aborta antes de teclear al lugar equivocado.
-4. **Verificación post-acción**: OCR/`uia_get_value` confirma lo tecleado; el envío se comprueba en pantalla.
-5. **Exclusión de textos de error** en la selección de candidatos: “Contraseña vacía…” no es un campo.
-6. **Auditable**: cada acción queda en `control_log.jsonl`.
+| Area | Tools | Method |
+| --- | --- | --- |
+| Vision | `screenshot`, `list_monitors`, `active_window`, `watch_*`, `diff_frames` | Pixel capture |
+| OCR + geometry | `read_screen_text`, `find_text`, `click_by_text`, `type_and_verify`, `ui_alerts` | Local OCR (`RapidOCR`) |
+| Desktop tree | `uia_tree`, `uia_click`, `uia_get_value` | Windows UI Automation |
+| Input | `mouse_move`, `mouse_click`, `mouse_drag`, `scroll`, `type_text`, `press_key`, `window_list`, `focus_window` | `SendInput` |
+| Flows & profiles | `run_flow`, `save_profile`, `get_profile` | JSON flow engine |
+| Governance & health | `set_autonomy`, `get_autonomy`, `doctor` | Mode gate + self-check |
 
-## Uso rápido
+## Design Principles
 
-```python
-# Type el descubrimiento: OCR encuentra 'GLM' en [510, 678] -> click sin adivinar
-json.loads(click_by_text("GLM"))
+1. **On-demand only.** Captures and input occur only when a tool is invoked. The optional watcher keeps only the 12 most recent frames.
+2. **Local-only.** No network access. Frames, profiles, and logs remain on disk under `AppData\Local\Temp\opencode\screen-vision\`.
+3. **Focus-guarded.** Control tools accept `expect_window`; on focus mismatch the agent aborts before sending input to the wrong application.
+4. **Verify-after-act.** Typed text is re-read via OCR, UI values via `uia_get_value`, and submissions are confirmed on screen before `Enter` is pressed.
+5. **Alert-aware.** Error and confirmation dialog text is excluded from click-target selection; `ui_alerts` surfaces failure feedback proactively.
+6. **Auditable.** Every input action is appended to `control_log.jsonl` with timestamp and parameters.
+
+## Installation
+
+Requires Python 3.10+ on Windows, plus `mcp<2`, `pillow`, and `pywinauto`.
+
+```bash
+pip install -e ./screen-vision-mcp
 ```
 
-Conectar a un cliente MCP (OpenCode):
+## Usage
+
+Connect to any MCP client over stdio:
 
 ```json
-{ "mcp": { "servers": { "screen": {
-  "type": "local",
-  "command": ["python", "<ruta>/screen_server.py"] } } } }
+{
+  "mcp": {
+    "servers": {
+      "screen": {
+        "type": "local",
+        "command": ["python", "<path>/screen_server.py"]
+      }
+    }
+  }
+}
 ```
 
-Las tool descubribles y sus contratos están en [`screen_manifest.json`](screen_manifest.json).
+Full tool contracts are specified in [`screen_manifest.json`](screen_manifest.json).
 
-## Pruebas (12/12)
+### Example flow
 
+```json
+[
+  { "op": "assert", "window": "notepad" },
+  { "op": "click_text", "query": "Save", "role": "button" },
+  { "op": "type", "text": "Report", "expect_input_query": "File name" },
+  { "op": "alerts" },
+  { "op": "press", "combo": "enter", "confirm": true },
+  { "op": "verify", "query": "Report" }
+]
 ```
-C:\Users\practicante1\AppData\Local\Python\pythoncore-3.12-64\python.exe `
-  -m pytest tests/test_core.py -q
+
+Tool autodiscovery: the server registers all tools under the `screen` namespace on client connect.
+
+## Testing
+
+```bash
+pytest tests/test_core.py -q
 ```
 
-Lecciones convertidas en código en los tests: `pick_candidate` (rol, posición
-relativa, exclusión de alertas), clipboard 64-bit (handles sin truncar) y
-`access violation`, manifiesto↔servidor.
+Test coverage includes candidate selection (role, anchor-relative geometry, alert exclusion), autonomy round-trip, 64-bit clipboard handling, and manifest-to-server consistency.
 
-## Lecciones aprendidas (de la batalla de WhatsApp)
+## License
 
-Todo esto nació de una sesión real manipulando WhatsApp Web: yendo de
-"funciona" a "funciona sin errores" (foco verificado antes de teclear,
-campo verificado por OCR tras teclear, burbuja verificada tras enviar).
-
-## Licencia
-
-Apache 2.0 (ver `LICENSE`).
+Apache 2.0. See `LICENSE`.
