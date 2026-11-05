@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Screen Vision MCP Server - Tool Manifest",
+  "version": "2.0.0",
+  "description": "On-demand screen access, interaction, and UI Automation for agents via MCP. Runs locally. Two accuracy paths: OCR+geometry (any app, ~3-4s) and Windows UI Automation (native apps + Chromium, ground truth, <200ms). A flow engine encodes the look->act->verify loop; a JSONL audit log records every control action.",
+  "transport": "stdio",
+  "platform": "windows",
+  "requires": ["python>=3.10", "mcp<2", "pillow", "pywinauto"],
+  "install": {
+    "opencode": {
+      "file": "~/.config/opencode/opencode.json",
+      "server": {
+        "type": "local",
+        "command": ["<python-exe>", "~/.config/opencode/mcp-servers/screen_server.py"]
+      }
+    },
+    "pipx": {
+      "package": "screen-vision-mcp (local editable install; see pyproject.toml)",
+      "command": "screen-vision-mcp"
+    }
+  },
+  "tool_groups": {
+    "vision": ["list_monitors", "screenshot", "active_window", "watch_start", "watch_stop", "watch_status", "watch_latest", "diff_frames"],
+    "ocr_plus_geometry": ["read_screen_text", "find_text", "click_by_text", "type_and_verify", "ui_alerts", "pixel_color"],
+    "desktop_dom_uia": ["uia_tree", "uia_click", "uia_get_value", "window_list", "focus_window"],
+    "input": ["mouse_move", "mouse_click", "mouse_drag", "scroll", "type_text", "press_key"],
+    "flows_and_profiles": ["run_flow", "save_profile", "get_profile"],
+    "governance_and_health": ["set_autonomy", "get_autonomy", "doctor"],
+    "notes": "expect_window parameter aborts control tools when the active window title changes (focus-guard against the classic mis-typed-into-wrong-window failure)."
+  },
+  "design_rules": [
+    "No tool runs unless explicitly called by the agent interacting with the user.",
+    "No network access: frames, profiles, and the audit log stay on disk.",
+    "Watcher stores at most 12 recent frames and recycles them.",
+    "Every interaction is logged to control_log.jsonl.",
+    "run_flow aborts on first failing step; the 'alerts' op catches error dialogs before Enter is pressed.",
+    "Autonomy: 'demo' mode requires confirm:true for submit-like presses; 'full' acts without per-step confirmation."
+  ],
+  "success_criteria_v2": {
+    "first_try_click": ">90%",
+    "uia_read_latency": "<200ms",
+    "ocr_read_latency": "<1s warm (cached regions)",
+    "repeatable_flows": "declarative run_flow instead of re-derived prompts"
+  }
+}

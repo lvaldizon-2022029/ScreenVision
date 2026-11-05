@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "screen-vision-mcp"
+version = "2.0.0"
+description = "Screen Vision: MCP server that lets agents see and drive the user's screen (OCR+geometry and Windows UI Automation). On-demand, audited, local-only."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "practicante1 + OpenCode" }]
+keywords = ["mcp", "screen", "automation", "uia", "ocr", "agent"]
+# Installed into the same interpreter that runs ~/.config/opencode/mcp-servers
+dependencies = ["mcp<2", "pillow>=10", "pywinauto>=0.6.8"]
+
+[project.scripts]
+screen-vision-mcp = "screen_vision_mcp:main"
+
+[tool.setuptools.packages.find]
+include = ["screen_vision_mcp*"]
